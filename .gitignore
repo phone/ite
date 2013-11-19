@@ -1,0 +1,10 @@
+pom.xml
+*jar
+*.pyc
+.DS_Store
+/lib/
+/classes/
+.lein-failures
+.lein-deps-sum
+*.clj#
+.#*

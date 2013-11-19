@@ -1,0 +1,179 @@
+/**********************************************************
+* Vars
+***********************************************************/
+
+:root {
+  var-bg: #202020;
+  var-fg: #ccc;
+  var-border: #444;
+  var-shadow: black;
+
+  var-placeholder-fg: #aaa;
+  var-dim-fg: #bbb;
+  var-bright-fg: #ddd;
+  var-blinding-fg: #fff;
+  var-hidden-fg: #999;
+
+  var-hidden-bg: #404040;
+
+  var-highlight-bg: #222;
+  var-highlight-fg: #eee;
+
+  var-dark-highlight-bg: #666;
+  var-medium-highlight-bg: #999;
+
+  var-button-bg: #707070;
+  var-button-fg: #d0d0d0;
+  var-button-active-bg: #ccc;
+  var-button-active-fg: #555;
+
+  var-pane-bg: #555;
+  var-pane-scrollbar: #7c7c7c;
+  var-dark-pane-bg: #444;
+  var-dark-pane-border: #606060;
+  var-pane-border: #888;
+
+  var-error-bg: #8A1C3B;
+  var-error-fg: #FFADAD;
+  var-error-highlight-fg: #FFCDCD;
+  var-error-border: #aF5D5D;
+
+  var-usage-bg: #5C0087;
+  var-usage-fg: #E8B5FF;
+
+  var-result-bg: #0B525E;
+  var-result-fg: #96FAFF;
+
+  var-overlay-dimmer: rgba(0,0,0,0.5);
+
+  var-accent-foreground: #96FAFF;
+  var-accent-background: #13879C;
+  var-light-accent-background: #18B1CC;
+  var-light-accent-foreground: #CCFCFF;
+  var-dark-accent-background: #0B525E;
+
+  var-secondary-accent-fg: #03FFc0;
+  var-secondary-accent-dim-fg: #5EBDA5;
+  var-secondary-accent-desat-fg: #9BC2B8;
+}
+
+/**********************************************************
+* Default editor theme
+***********************************************************/
+
+/* span.anchor { float: left; background:#733 ;} */
+span.anchor-focused{ float: left; background:#18B1CC; -webkit-user-select:none; user-select:none;}
+span.anchor { float:left; background: #13879C; -webkit-user-select:none; user-select:none;}
+.cm-s-tag { background: #151515; color:#ccc; border-top: 1px solid black;}
+.cm-s-tag .CodeMirror {display: inline-block; height:auto; overflow-x:auto; overflow-y:hidden;}
+.cm-s-tag .CodeMirror-scroll {height:auto; overflow-x:auto; overflow-y:hidden;}
+.cm-s-tag .CodeMirror-selected { background: #555; }
+.cm-s-tag .CodeMirror-focused .CodeMirror-selected { background: #444; }
+
+.cm-s-tag span.cm-symbol {color: #ccc;}
+.cm-s-tag span.cm-variable {color: #ccc;}
+.cm-s-tag span.cm-variable-2 {color: #acf}
+.cm-s-tag span.cm-string {color: #add}
+.cm-s-tag span.cm-string-2 {color: #add;}
+.cm-s-tag span.cm-number {color: #ccc;}
+.cm-s-tag span.cm-def {color:#acf;}
+.cm-s-tag span.cm-builtin {color: #aec;}
+.cm-s-tag span.cm-header {color: #aec;}
+.cm-s-tag span.cm-property {color: #aaa; }
+.cm-s-tag span.cm-operator {color: #aaa; }
+.cm-s-tag span.cm-keyword {color: #aec; }
+.cm-s-tag span.cm-qualifier {color: #aec; }
+.cm-s-tag span.cm-attribute {color: #aec; }
+.cm-s-tag span.cm-meta {color: #aec; }
+.cm-s-tag span.cm-atom { color: #caf; }
+.cm-s-tag span.cm-tag {color: #acf;}
+.cm-s-tag span.cm-comment { color:#9ac; }
+
+.cm-s-default { background: #202020; color:#ccc; }
+
+.cm-s-default span.cm-bracket {color: #aaa;}
+.cm-s-default span.cm-bracket1 {color: #aaa; }
+.cm-s-default span.cm-bracket2 {color: #0f0;}
+.cm-s-default span.cm-bracket3 {color: #00ff7f;}
+.cm-s-default span.cm-bracket4 {color: #00ffff;}
+.cm-s-default span.cm-bracket5 {color: #836FFF;}
+.cm-s-default span.cm-bracket6 {color: #FF00FF;}
+.cm-s-default span.cm-bracket7 {color: #9B30FF;}
+.cm-s-default span.cm-bracket8 {color: #00ff7f;}
+.cm-s-default span.cm-bracket9 {color: #00ffff;}
+.cm-s-default span.cm-bracket10 {color: #836FFF;}
+.cm-s-default span.cm-bracket11 {color: #FF00FF;}
+.cm-s-default span.cm-bracket12 {color: #9B30FF;}
+.cm-s-default span.cm-bracket0, .cm-s-default span.cm-bracket-mismatched { color:#f88; background:#733; }
+
+.cm-s-default span.cm-symbol {color: #ccc;}
+.cm-s-default span.cm-variable {color: #ccc;}
+.cm-s-default span.cm-variable-2 {color: #acf}
+.cm-s-default span.cm-string {color: #add}
+.cm-s-default span.cm-string-2 {color: #add;}
+.cm-s-default span.cm-number {color: #ccc;}
+.cm-s-default span.cm-def {color:#acf;}
+.cm-s-default span.cm-builtin {color: #aec;}
+.cm-s-default span.cm-header {color: #aec;}
+.cm-s-default span.cm-property {color: #aaa; }
+.cm-s-default span.cm-operator {color: #aaa; }
+.cm-s-default span.cm-keyword {color: #aec; }
+.cm-s-default span.cm-qualifier {color: #aec; }
+.cm-s-default span.cm-attribute {color: #aec; }
+.cm-s-default span.cm-meta {color: #aec; }
+.cm-s-default span.cm-atom { color: #caf; }
+.cm-s-default span.cm-tag {color: #acf;}
+.cm-s-default span.cm-comment { color:#9ac; }
+.cm-s-default span.CodeMirror-searching { background: #aaa; color:black; }
+.cm-s-default span.CodeMirror-searching-active { background: #afa; color:black; }
+
+.cm-s-default .CodeMirror-selected { background: #555; }
+.cm-s-default .CodeMirror-focused .CodeMirror-selected { background: #444; }
+
+.cm-s-default .CodeMirror-activeline { background:#303030; }
+.cm-s-default span.CodeMirror-matchingbracket {box-sizing:border-box; background:transparent; border-bottom:1px solid #3FF; font-weight:normal;}
+.cm-s-default span.CodeMirror-nonmatchingbracket {color: #F33; border-bottom:1px solid #F33; background:none;}
+
+.cm-s-default .cm-searching { background:#5f5f5f; border-radius:2px; color:#eee !important; }
+.cm-s-default .searching-current { background:#13879C; color:#BFFCFF !important; }
+
+.CodeMirror div.CodeMirror-cursor { border-left: 1px solid white; }
+/* Shown when moving in bi-directional text */
+.CodeMirror div.CodeMirror-secondarycursor { border-left: 1px solid silver; }
+.CodeMirror.cm-keymap-fat-cursor div.CodeMirror-cursor { width: auto; border: none !important; background: rgba(0, 200, 200, .4); }
+
+.CodeMirror-gutters { background: #202020; }
+.cm-s-default .CodeMirror-activeline .CodeMirror-linenumber { background:#474a4f; color:#888; }
+
+.CodeMirror-hints { position: absolute; z-index: 1000000000000000; overflow: hidden; list-style: none;  margin: 0; padding: 2px;  border-radius: 2px; border: 1px solid #555;  background: #555; font-size: 90%; font-family: inherit;  max-height: 20em; }
+.CodeMirror-hints ul { overflow-y:auto; max-height:20em; }
+.CodeMirror-hints ul li { margin: 0; padding: 0 4px; border-radius: 2px; max-width: 60em; overflow: hidden; white-space: pre; color: #ccc; cursor: pointer; }
+.CodeMirror-hints input { display:none; }
+.CodeMirror-hints .selected { background: #222; color: #eee; }
+.CodeMirror-hints ul::-webkit-scrollbar-thumb { background: #7c7c7c; border-color: #7c7c7c; }
+
+/**********************************************************
+* Shared
+***********************************************************/
+
+html { background: #202020; }
+body { background: #202020; color: #ccc; }
+a {text-decoration:none; color: #ccc; }
+.button, button { background:var(button-bg); color:var(button-fg); }
+.button:hover, .button:focus, button:hover, button:focus { background:var(button-active-bg); color: var(button-active-fg); }
+input { color: #eee; background:#222; }
+
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { border-radius: 2px; }
+::-webkit-scrollbar-thumb { border-radius: 2px; }
+::-webkit-scrollbar-corner { background:transparent; }
+
+::-webkit-input-placeholder { color: #aaa; }
+::-webkit-scrollbar {background: transparent;}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #666; border:1px solid #666; }
+::-webkit-scrollbar-thumb:hover { background: #999; border:1px solid #999; }
+::-webkit-scrollbar-corner { background:transparent; }
+::selection { background: #aaa; }
+
+
