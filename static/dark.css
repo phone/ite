@@ -64,7 +64,7 @@
 /* span.anchor { float: left; background:#733 ;} */
 span.anchor-focused{ float: left; background:#18B1CC; -webkit-user-select:none; user-select:none;}
 span.anchor { float:left; background: #13879C; -webkit-user-select:none; user-select:none;}
-.cm-s-tag { background: #151515; color:#ccc; border-top: 1px solid black;}
+.cm-s-tag { background: #151515; color:#ccc; border-top: 1px solid #202020;}
 .cm-s-tag .CodeMirror {display: inline-block; height:auto; overflow-x:auto; overflow-y:hidden;}
 .cm-s-tag .CodeMirror-scroll {height:auto; overflow-x:auto; overflow-y:hidden;}
 .cm-s-tag .CodeMirror-selected { background: #555; }

@@ -7,9 +7,11 @@ $(document).ready(function () {
                "mode" : "shell",
                "theme" : "tag",
                "indentWithTabs" : false,
+               "lineWrapping" : true,
                "indentUnit" : 4};
     outopts = {"matchBrackets" : true,
                "autoCloseBrackets" : true,
+               "lineWrapping" : true,
                "indentWithTabs" : false,
                "indentUnit" : 4};
     modes = {"js" : "javascript",
@@ -33,19 +35,83 @@ $(document).ready(function () {
              "html" : "text/html"}
     opts = [{}, tagopts, outopts];
     vm = new ViewModel();
-    vm.newFrame();
+    //vm.newFrame(null, true, null, "auto"); // the mainframe
+    vm.newCol(null);
+    vm.newCol(null);
     ko.applyBindings(vm);
     window['vm'] = vm;
 });
+
+function allowDrop(ev) {
+    ev.preventDefault();
+    return false;
+};
+
+function drag(ev) {
+    ev.dataTransfer.setData("Text",ev.target.parentNode.id);
+    return false;
+};
+
+function drop(ev) {
+    ev.preventDefault();
+    var data = ev.dataTransfer.getData("Text");
+    var srcColId = vm.framesById[data].colid;
+    var node = ev.target;
+    while(true) {
+        if (node.nodeName === "TD") {
+            break;
+        }
+        if (node.parentNode === null) {
+            node = null;
+            break;
+        }
+        node = node.parentNode;
+    }
+    if (!node) return true;
+    var target = $(node)
+    var dstColId = target.attr("id").substring(3);
+    if (node && srcColId !== dstColId) {
+        vm.framesById[data].colid = dstColId;
+        var wasHidden = vm.framesById[data].outhidden;
+        orig_node = document.getElementById(data);
+        orig_node.parentNode = node;
+        target.append(orig_node);
+        vm.framesById[data].bigger();
+        var done = false;
+        _.each(_.keys(vm.framesById), function (fid) {
+            if (done) return;
+            var f = vm.framesById[fid];
+            if (wasHidden) {
+                if (f.colid === srcColId) {
+                    if (!f.outhidden) {
+                        f.bigger();
+                        done = true;
+                    }
+                }
+            } else {
+                if (f.colid === srcColId) {
+                    if (f.id !== data) {
+                        f.bigger();
+                        done = true;
+                    }
+                }
+            }
+        });
+    }
+    return false;
+};
 
 function Commands() {
     var self = this;
     self._it_Put = function() {
         vm.put();
     };
-    self._it_New = function() {
-        vm.newFrame();
+    self._it_New = function(colid) {
+        vm.newFrame(null, null, colid, "auto");
     };
+    self._it_Newcol = function() {
+        vm.newCol();
+    }
 };
 
 function Editor(elt, frame, id, type, options) {
@@ -120,7 +186,6 @@ function Editor(elt, frame, id, type, options) {
         vm.setFocusedEditor(self.id);
     });
     self.cm.on("mousedown", function(cm, e) {
-        console.log(e);
         if (e.which === 2 || (e.which === 1 && e.altKey) || e.which === 3) {
             var pos = cm.getCursor();
             var line = cm.getLine(pos.line)
@@ -138,7 +203,6 @@ function Editor(elt, frame, id, type, options) {
             var selstart = ctr;
             var selend = ctr;
             for (var i = pos.ch;; i++) {
-                console.log(i);
                 if (!line[i] || /^[\s\/]$/.test(line[i])) {
                     selstart = i;
                     break;
@@ -152,13 +216,12 @@ function Editor(elt, frame, id, type, options) {
             }
             cm.getDoc().setSelection(CodeMirror.Pos(pos.line, selstart),
                                      CodeMirror.Pos(pos.line, selend));
-            console.log("attempting to bubble post sel");
         }
         return true;
     });
 };
 
-function Frame(id) {
+function Frame(id, isMainframe, colid, width) {
     var self = this;
     this.idify = function (id) { return "#" + id; };
     this.id = id;
@@ -166,8 +229,12 @@ function Frame(id) {
     this.ancid = "anc" + id;
     this.tagid = "tag" + id;
     this.outid = "out" + id;
+    this.tagOnly = false;
     this.taghidden = false;
     this.outhidden = false;
+    this.isMainframe = isMainframe;
+    this.colid = colid;
+    this.width = width;
     this.tagHeight = function() {
         return self.taghidden ? 0 : $(self.idify(self.tagid)).height();
     };
@@ -206,11 +273,12 @@ function Frame(id) {
         $(self.idify(self.ancid)).removeClass("anchor-focused").addClass("anchor");
     };
     this.hideOthers = function() {
-        for (i = 0; i < vm.frames.length; i++) {
-            var fr = vm.frames[i];
-            if (fr.id === self.id || fr.outhidden) continue;
+        _.each(_.keys(vm.framesById), function (i) {
+            var fr = vm.framesById[i];
+            if (fr.isMainframe) fr.minimize();
+            if (fr.id === self.id || fr.outhidden || fr.colid !== self.colid) return;
             fr.minimize();
-        };
+        });
     };
     this.bigger = function() {
         self.hideOthers();
@@ -218,11 +286,27 @@ function Frame(id) {
         $(self.idify(self.outid)).show();
         self.resize();
     };
-    $("#top").append("<div id=\""+self.id+"\"> \n" +
-                     "  <span class=\"anchor\" id=\""+self.ancid+"\">&nbsp;&nbsp;&nbsp;&nbsp;</span>\n" +
-                     "  <div class=\"tag\" id=\""+self.tagid+"\"></div> \n" +
-                     "  <div id=\""+self.outid+"\"></div> \n" +
-                     "</div>");
+    var htmldiv = 
+        "<div id=\""+self.id+"\"> \n" +
+        "  <span class=\"anchor\" ondragstart=\"drag(event)\" draggable=\"true\" id=\""+self.ancid+"\">&nbsp;&nbsp;&nbsp;&nbsp;</span>\n" +
+        "  <div class=\"tag\" id=\""+self.tagid+"\"></div> \n" +
+        "  <div id=\""+self.outid+"\"></div> \n" +
+        "</div>";
+    if (isMainframe) {
+        $("#edit").append(htmldiv);
+        $("#"+self.tagid).addClass("mainframe");
+    } else {
+        var col = $("#col"+self.colid);
+        if (!col.length) {
+            $("#top").append("<td ondragover=\"allowDrop(event)\" ondrop=\"drop(event)\"id=\"col"+self.colid+"\"></td>");
+            col = $("#col"+self.colid);
+        }
+        col.append(htmldiv);
+        var ncols = $("td").length;
+        $("td").width($(document).width()/ncols);
+        //$("#"+self.tagid).width(self.width);
+        //$("#col"+self.colid).width(self.width);
+    }
     
     self.taged = new Editor($(self.idify(self.tagid))[0],
                             self, self.tagid, TAG);
@@ -237,11 +321,13 @@ function ViewModel() {
     var self = this;
     this.frames = [];
     this.framesByTag = {};
-    this.cols = 1;
+    this.framesById = {};
+    this.columnIds = {};
     this.colwidth = $(document).width();
     this.commands = new Commands();
     this.editors = {};
     this.maxid = 0;
+    this.columnCount = 0;
     this.focusedEditor = null;
     this.setFocusedEditor = function(id) {
         self.focusedEditor = self.editors[id];
@@ -288,7 +374,7 @@ function ViewModel() {
                       if (_.has(self.framesByTag, cwd)) {
                           targetFrame = self.framesByTag[cwd];
                       } else {
-                          targetFrame = self.newFrame(cwd);
+                          targetFrame = self.newFrame(cwd, null, fe.frame.colid);
                       }
                       targetFrame.outed.getDoc().setValue(output);
 //                      targetFrame.taged.setCwd(cwd);
@@ -317,7 +403,7 @@ function ViewModel() {
         if (sel_orig) {
             var nssel = "_it_" + sel_orig;
             if (nssel in self.commands) {
-                self.commands[nssel]();
+                self.commands[nssel](fe.frame.colid);
             } else {
                 console.log("posting");
                 var data = { "cmd" : sel_orig,
@@ -334,14 +420,15 @@ function ViewModel() {
                           if (_.has(self.framesByTag, cwd)) {
                               targetFrame = self.framesByTag[cwd];
                           } else {
-                              targetFrame = self.newFrame(cwd);
+                              targetFrame = self.newFrame(cwd, null, fe.frame.colid);
                           }
                           targetFrame.outed.getDoc().setValue(output);
                       }});
             }
         }};
-    this.newFrame = function(tagKey) {
-        var f = new Frame(self.maxid++);
+    this.newFrame = function(tagKey, isMainframe, colid, width) {
+        var id = id ? id : _.uniqueId();
+        var f = new Frame(id, isMainframe, colid, width);
         for (var i = 0; i < f.editors.length; i++) {
             var eid = f.editors[i].id;
             self.editors[eid] = f.editors[i];
@@ -351,11 +438,19 @@ function ViewModel() {
             f.taged.setTagKey(tagKey)
             self.framesByTag[tagKey] = f;
         }
+        self.framesById[id] = f
         return f;
+    };
+    this.newCol = function(tagKey) {
+        self.columnCount ++;
+        var newColId = _.uniqueId();
+        var newFrame = self.newFrame(tagKey, false, newColId, "auto");
+        self.columnIds[newColId] = newFrame;
+        return newFrame
     };
     $("#top").on("contextmenu", function(e) {
         if (e.target.className === "anchor") {
-            self.frames[parseInt($(e.target.parentNode).attr("id"))].bigger();
+            self.framesById[parseInt($(e.target.parentNode).attr("id"))].bigger();
         } else {
             self.open();
         }
@@ -369,18 +464,3 @@ function ViewModel() {
     });
 };
 
-/*    this.tag = CodeMirror(tag1);
-    this.tag.setSize(self.colwidth,"auto");
-    this.tag.setOption("matchBrackets", true);
-    this.tag.setOption("autoCloseBrackets", true);
-    //this.tag.setOption("keyMap", "vim");
-    this.tag.setOption("mode", "python");
-    this.tag.setOption("theme", "tag");
-    this.tag.setOption("indentWithTabs", false);
-    this.tag.setOption("indentUnit", 4);
-
-    this.out = CodeMirror(out1);
-    this.out.setSize(self.colwidth,500);
-    this.out.setOption("matchBrackets", true);
-    this.out.setOption("autoCloseBrackets", true);
-*/
