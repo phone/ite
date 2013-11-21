@@ -8,9 +8,11 @@ $(document).ready(function () {
                "theme" : "tag",
                "indentWithTabs" : false,
                "lineWrapping" : true,
+               "dragDrop" : false,
                "indentUnit" : 4};
     outopts = {"matchBrackets" : true,
                "autoCloseBrackets" : true,
+               "dragDrop" : false,
                "lineWrapping" : true,
                "indentWithTabs" : false,
                "indentUnit" : 4};
@@ -48,26 +50,19 @@ function allowDrop(ev) {
 };
 
 function drag(ev) {
-    ev.dataTransfer.setData("Text",ev.target.parentNode.id);
+    ev.dataTransfer.setData("text/plain",ev.target.parentNode.id);
+    ev.dataTransfer.effectAllowed = "move";
+    //_.each(_.keys(vm.editors), function (cm) {
+    //    vm.editors[cm].getCm().setOption("dragDrop", false);
+    //});
     return false;
 };
 
 function drop(ev) {
     ev.preventDefault();
-    var data = ev.dataTransfer.getData("Text");
+    var data = ev.dataTransfer.getData("text/plain");
     var srcColId = vm.framesById[data].colid;
-    var node = ev.target;
-    while(true) {
-        if (node.nodeName === "TD") {
-            break;
-        }
-        if (node.parentNode === null) {
-            node = null;
-            break;
-        }
-        node = node.parentNode;
-    }
-    if (!node) return true;
+    var node = ev.currentTarget;
     var target = $(node)
     var dstColId = target.attr("id").substring(3);
     if (node && srcColId !== dstColId) {
@@ -98,6 +93,9 @@ function drop(ev) {
             }
         });
     }
+    //_.each(_.keys(vm.editors), function (cm) {
+    //    vm.editors[cm].getCm().setOption("dragDrop", true);
+    //});
     return false;
 };
 
