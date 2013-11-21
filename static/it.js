@@ -104,8 +104,11 @@ function Commands() {
     self._it_Put = function() {
         vm.put();
     };
-    self._it_New = function(colid) {
-        vm.newFrame(null, null, colid, "auto");
+    self._it_Del = function(frame) {
+        vm.delFrame(frame.id);
+    };
+    self._it_New = function(frame) {
+        vm.newFrame(null, null, frame.colid, "auto");
     };
     self._it_Newcol = function() {
         vm.newCol();
@@ -246,16 +249,6 @@ function Frame(id, isMainframe, colid, width) {
         return height;
     };
     this.resize = function() {
-       // var totalavailable = window.innerHeight;
-       // var beingused = 0;
-       // for (var i = 0; i < vm.frames.length; i++) {
-       //     var fr = vm.frames[i];
-       //     if (fr.id === self.id) continue;
-       //     beingused += fr.getHeight();
-       // };
-       // beingused += self.tagHeight();
-       // console.log(totalavailable - beingused);
-       // var outedHeight = totalavailable - beingused;
         self.taged.cm.setSize(self.colwidth, "auto");
         var outedHeight = 9999
         self.outed.cm.setSize(self.colwidth, outedHeight);
@@ -317,7 +310,6 @@ function Frame(id, isMainframe, colid, width) {
 
 function ViewModel() {
     var self = this;
-    this.frames = [];
     this.framesByTag = {};
     this.framesById = {};
     this.columnIds = {};
@@ -401,7 +393,7 @@ function ViewModel() {
         if (sel_orig) {
             var nssel = "_it_" + sel_orig;
             if (nssel in self.commands) {
-                self.commands[nssel](fe.frame.colid);
+                self.commands[nssel](fe.frame);
             } else {
                 console.log("posting");
                 var data = { "cmd" : sel_orig,
@@ -431,13 +423,44 @@ function ViewModel() {
             var eid = f.editors[i].id;
             self.editors[eid] = f.editors[i];
         }
-        self.frames.push(f);
         if (tagKey) {
             f.taged.setTagKey(tagKey)
             self.framesByTag[tagKey] = f;
         }
         self.framesById[id] = f
         return f;
+    };
+    this.delFrame = function(frameId) {
+        var frame = self.framesById[frameId];
+        var wasHidden = frame.outhidden;
+        var srcColId = frame.colid;
+        var srcTagKey = frame.taged.getTagKey();
+        $("#"+frameId).remove();
+        _.each(frame.editors, function(e) {
+            delete vm.editors[e.id];
+        });
+        delete vm.framesByTag[srcTagKey];
+        delete vm.framesById[frameId];
+        var done = false;
+        _.each(_.keys(vm.framesById), function (fid) {
+            if (done) return;
+            var f = vm.framesById[fid];
+            if (wasHidden) {
+                if (f.colid === srcColId) {
+                    if (!f.outhidden) {
+                        f.bigger();
+                        done = true;
+                    }
+                }
+            } else {
+                if (f.colid === srcColId) {
+                    if (f.id !== frameId) {
+                        f.bigger();
+                        done = true;
+                    }
+                }
+            }
+        });
     };
     this.newCol = function(tagKey) {
         self.columnCount ++;
