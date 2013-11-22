@@ -39,7 +39,6 @@ $(document).ready(function () {
     vm = new ViewModel();
     //vm.newFrame(null, true, null, "auto"); // the mainframe
     vm.newCol(null);
-    vm.newCol(null);
     ko.applyBindings(vm);
     window['vm'] = vm;
 });
@@ -52,9 +51,6 @@ function allowDrop(ev) {
 function drag(ev) {
     ev.dataTransfer.setData("text/plain",ev.target.parentNode.id);
     ev.dataTransfer.effectAllowed = "move";
-    //_.each(_.keys(vm.editors), function (cm) {
-    //    vm.editors[cm].getCm().setOption("dragDrop", false);
-    //});
     return false;
 };
 
@@ -67,37 +63,68 @@ function drop(ev) {
     var dstColId = target.attr("id").substring(3);
     if (node && srcColId !== dstColId) {
         vm.framesById[data].colid = dstColId;
-        var wasHidden = vm.framesById[data].outhidden;
+        var wasHidden = vm.framesById[data].minimized;
         orig_node = document.getElementById(data);
         orig_node.parentNode = node;
         target.append(orig_node);
         vm.framesById[data].bigger();
-        var done = false;
-        _.each(_.keys(vm.framesById), function (fid) {
-            if (done) return;
-            var f = vm.framesById[fid];
-            if (wasHidden) {
-                if (f.colid === srcColId) {
-                    if (!f.outhidden) {
-                        f.bigger();
-                        done = true;
-                    }
-                }
-            } else {
-                if (f.colid === srcColId) {
-                    if (f.id !== data) {
-                        f.bigger();
-                        done = true;
-                    }
-                }
-            }
-        });
+        vm.rebalanceCol(srcColId, wasHidden, data);
     }
-    //_.each(_.keys(vm.editors), function (cm) {
-    //    vm.editors[cm].getCm().setOption("dragDrop", true);
-    //});
     return false;
 };
+
+FILE   = "file";
+DIR    = "dir";
+OUTPUT = "output";
+PTY    = "pty";
+ValidTypes = [FILE,OUTPUT,DIR,PTY];
+
+EndsWith = function (list, item) { return (list[list.length - 1] === item); };
+
+AutoSelect = function (e, cm) {
+    if (e.which === 2 || (e.which === 1 && e.altKey) || e.which === 3) {
+        var pos  = cm.getCursor();
+        var line = cm.getLine(pos.line)
+        var ctr  = line[pos.ch];
+        if (cm.somethingSelected() || cm.prevSelection) {
+            /* if something is selected, use the selection if we click inside it */
+            var posidx   = cm.getDoc().indexFromPos(pos);
+            var existart = null;
+            var exiend   = null;
+            if (cm.somethingSelected()) {
+                existart = cm.getDoc().indexFromPos(cm.getCursor("anchor"));
+                exiend   = cm.getDoc().indexFromPos(cm.getCursor("head"));
+            } else {
+                existart = cm.getDoc().indexFromPos(cm.prevSelection.anchor);
+                exiend   = cm.getDoc().indexFromPos(cm.prevSelection.head);
+            }
+            var exidistance = existart - exiend;
+            if (exidistance !== 0 && 
+                ((posidx >= existart && posidx <= exiend) ||
+                 (posidx <= existart && posidx >= exiend))) {
+                if (cm.somethingSelected()) return;
+                cm.setSelection(cm.prevSelection.anchor, cm.prevSelection.head);
+                return;
+            }
+        }
+        var selstart = ctr;
+        var selend = ctr;
+        for (var i = pos.ch;; i++) {
+            if (!line[i] || /^[\s\/]$/.test(line[i])) {
+                selstart = i;
+                break;
+            }
+        }
+        for (var i = pos.ch;; i--) {
+            if (i === 0 || /^\s$/.test(line[i])) {
+                selend = i;
+                break;
+            }
+        }
+        cm.setSelection(CodeMirror.Pos(pos.line, selstart),
+                        CodeMirror.Pos(pos.line, selend));
+    }
+}
 
 function Commands() {
     var self = this;
@@ -112,15 +139,17 @@ function Commands() {
     };
     self._it_Newcol = function() {
         vm.newCol();
-    }
+    };
+    self._it_Delcol = function(frame) {
+        vm.delCol(frame.colid);
+    };
 };
 
 function Editor(elt, frame, id, type, options) {
     var self = this;
     this.id = id;
     this.frame = frame;
-    this.isFile = false;
-    this.hasTag = false;
+    this.prevSelection = null;
     this.getCm = function () {
         return self.cm;
     };
@@ -130,22 +159,82 @@ function Editor(elt, frame, id, type, options) {
     this.getTaged = function () {
         return self.frame.taged;
     };
-    this.getFirstLineTokens = function () {
-        var taged = self.getTaged();
+    this.cm = CodeMirror(elt, opts[type]);
+    self.cm.on("focus", function(cm) {
+        vm.setFocusedEditor(self.id);
+    });
+    self.cm.on("beforeSelectionChange", function(cm, prevSelection, e) { 
+        existart = cm.indexFromPos(prevSelection.anchor);
+        exiend   = cm.indexFromPos(prevSelection.head);
+        var exidistance = existart - exiend;
+        if (exidistance !== 0) {
+            cm.prevSelection = prevSelection;
+        }
+    });
+    self.cm.on("contextmenu", function(cm, e) {
+        setTimeout(function() {
+            vm.setFocusedEditor(self.id);
+            AutoSelect(e, cm);
+            vm.open();
+        }, 2);
+        return false;
+    });
+    self.cm.on("mousedown", function(cm, e) {
+        if (e.which === 1 && !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+            cm.previousSelection = null;
+        }
+        if (e.which === 2 || (e.which === 1 && e.altKey)) {
+            setTimeout(function() {
+                vm.setFocusedEditor(self.id);
+                AutoSelect(e, cm);
+                vm.execute();
+            }, 2);
+        }
+        return false;
+    });
+};
+
+function Frame(id, isMainframe, colid, width) {
+    var self = this;
+    this.idify = function (id) { return "#" + id; };
+    this.id = id;
+    this.editors = [];
+    this.ancid = "anc" + id;
+    this.tagid = "tag" + id;
+    this.outid = "out" + id;
+    this.type = null;
+    this.tagOnly = false;
+    this.hasTagKey = false;
+    this.hidden = false;
+    this.minimized = false;
+    this.isMainframe = isMainframe;
+    this.colid = colid;
+    this.width = width;
+    this.setType = function (type) {
+        if (ValidTypes.indexOf(type) >= 0) {
+            self.type = type;
+        }
+    };
+    this.isFile = function () { return self.type === FILE;};
+    this.isOutput = function () { return self.type === OUTPUT;};
+    this.isPty = function () { return self.type === PTY;};
+    this.isDir = function () { return self.type === DIR;};
+    this.getTagTokens = function () {
+        var taged = self.taged;
         var doc = taged.getDoc();
         var tagtxt = doc.getLine(doc.firstLine());
         var tokens = tagtxt.split(" ");
         return tokens;
     };
     this.getTagKey = function () {
-        return self.getFirstLineTokens()[0];
+        return self.getTagTokens()[0];
     };
     this.setTagKey = function (tagKey) {
-        var tagEd = self.frame.taged;
+        var tagEd = self.taged;
         var tagLineIdx = tagEd.getDoc().firstLine();
         var line = tagEd.getDoc().getLine(tagLineIdx);
         var newLine = line;
-        if (tagEd.hasTag) {
+        if (self.hasTagKey) {
             var currentTagKey = self.getTagKey();
             var tagKeyEndCh = 0;
             for (var i = 0;; i++) {
@@ -162,90 +251,39 @@ function Editor(elt, frame, id, type, options) {
                 newLine = tagKey + " " + line; 
             }
         }
-        vm.framesByTag[tagKey] = self.frame;
-        if (self.frame.taged.getTagKey() !== tagKey) {
+        vm.framesByTag[tagKey] = self;
+        if (self.getTagKey() !== tagKey) {
             tagEd.getDoc().setLine(tagLineIdx, newLine);
         }
-        tagEd.hasTag = true;
+        self.hasTagKey = true;
     }
     this.getCwd = function () {
-        var cwd = self.getFirstLineTokens()[0];
-        if (this.isFile) {
+        var cwd = self.getTagTokens()[0];
+        if (self.isFile() || self.isOutput()) {
             cwd = cwd.substring(0, cwd.lastIndexOf("/"));
+        }
+        if (! EndsWith(cwd, "/")) {
+            cwd = cwd.concat("/");
         }
         return cwd;
     };
     this.setCwd = function (cwd) {
-        var tokens = self.getFirstLineTokens();
+        var tokens = self.getTagTokens();
         tokens[0] = cwd;
         var fl = tokens.join(" ");
-        var doc = self.getTaged().getDoc();
+        var doc = self.taged.getDoc();
         doc.setLine(doc.firstLine(), fl);
     };
-    this.cm = CodeMirror(elt, opts[type]);
-    self.cm.on("focus", function(cm) {
-        vm.setFocusedEditor(self.id);
-    });
-    self.cm.on("mousedown", function(cm, e) {
-        if (e.which === 2 || (e.which === 1 && e.altKey) || e.which === 3) {
-            var pos = cm.getCursor();
-            var line = cm.getLine(pos.line)
-            var ctr = line[pos.ch];
-            if (cm.somethingSelected()) {
-                /* if something is selected, use the selection if we click inside it */
-                var posidx = cm.getDoc().indexFromPos(pos);
-                var existart = cm.getDoc().indexFromPos(cm.getCursor("anchor"));
-                var exiend = cm.getDoc().indexFromPos(cm.getCursor("head"));
-                if ((posidx >= existart && posidx <= exiend) ||
-                    (posidx <= existart && posidx >= exiend)) {
-                    return true;
-                }
-            }
-            var selstart = ctr;
-            var selend = ctr;
-            for (var i = pos.ch;; i++) {
-                if (!line[i] || /^[\s\/]$/.test(line[i])) {
-                    selstart = i;
-                    break;
-                }
-            }
-            for (var i = pos.ch;; i--) {
-                if (i === 0 || /^\s$/.test(line[i])) {
-                    selend = i;
-                    break;
-                }
-            }
-            cm.getDoc().setSelection(CodeMirror.Pos(pos.line, selstart),
-                                     CodeMirror.Pos(pos.line, selend));
-        }
-        return true;
-    });
-};
-
-function Frame(id, isMainframe, colid, width) {
-    var self = this;
-    this.idify = function (id) { return "#" + id; };
-    this.id = id;
-    this.editors = [];
-    this.ancid = "anc" + id;
-    this.tagid = "tag" + id;
-    this.outid = "out" + id;
-    this.tagOnly = false;
-    this.taghidden = false;
-    this.outhidden = false;
-    this.isMainframe = isMainframe;
-    this.colid = colid;
-    this.width = width;
     this.tagHeight = function() {
-        return self.taghidden ? 0 : $(self.idify(self.tagid)).height();
+        return self.hidden ? 0 : $(self.idify(self.tagid)).height();
     };
     this.outHeight = function () {
-        return self.outhidden ? 0 : $(self.idify(self.outid)).height();
+        return (self.hidden || self.minimized) ? 0 : $(self.idify(self.outid)).height();
     };
     this.getHeight = function() {
         var height = 0;
-        height += self.taghidden ? 0 : $(self.idify(self.tagid)).height();
-        height += self.outhidden ? 0 : $(self.idify(self.outid)).height();
+        height += self.hidden ? 0 : $(self.idify(self.tagid)).height();
+        height += self.minimized ? 0 : $(self.idify(self.outid)).height();
         return height;
     };
     this.resize = function() {
@@ -259,7 +297,7 @@ function Frame(id, isMainframe, colid, width) {
         $(self.idify(self.ancid)).removeClass("anchor").addClass("anchor-focused");
     };
     this.minimize = function() {
-        self.outhidden = true;
+        self.minimized = true;
         $(self.idify(self.outid)).hide();
         $(self.idify(self.ancid)).removeClass("anchor-focused").addClass("anchor");
     };
@@ -267,13 +305,13 @@ function Frame(id, isMainframe, colid, width) {
         _.each(_.keys(vm.framesById), function (i) {
             var fr = vm.framesById[i];
             if (fr.isMainframe) fr.minimize();
-            if (fr.id === self.id || fr.outhidden || fr.colid !== self.colid) return;
+            if (fr.id === self.id || fr.minimized || fr.colid !== self.colid) return;
             fr.minimize();
         });
     };
     this.bigger = function() {
         self.hideOthers();
-        self.outhidden = false;
+        self.minimized = false;
         $(self.idify(self.outid)).show();
         self.resize();
     };
@@ -323,7 +361,7 @@ function ViewModel() {
         self.focusedEditor = self.editors[id];
     };
     this.get_cwd = function() {
-        return self.focusedEditor.getCwd();
+        return self.focusedEditor.frame.getCwd();
     };
     this.get_selection = function() {
         if (self.focusedEditor.cm.somethingSelected()) {
@@ -333,14 +371,14 @@ function ViewModel() {
     };
     this.put = function() {
         var fe = self.focusedEditor;
-        var path = fe.getTagKey();
+        var path = fe.frame.getTagKey();
         var content = fe.frame.outed.getDoc().getValue();
         var data = { "path" : path, "content": content };
         post({'resource': '/put',
               'data': data,
               'success' : function (xhr) {
-                  fe.setTagKey(path);
-                  fe.hasTag = true;
+                  fe.frame.setTagKey(path);
+                  fe.frame.hasTagKey = true;
                   return true;
               }});
     };
@@ -354,8 +392,8 @@ function ViewModel() {
             post({'resource': '/o',
                   'data': data,
                   'success': function (xhr) {
-                      if (!fe.frame.taged.hasTag) {
-                          fe.frame.taged.setTagKey(orig_sel);
+                      if (!fe.frame.hasTagKey) {
+                          fe.frame.setTagKey(orig_sel);
                       }
                       var output = xhr.output;
                       var cwd = xhr.cwd;
@@ -369,8 +407,7 @@ function ViewModel() {
                       targetFrame.outed.getDoc().setValue(output);
 //                      targetFrame.taged.setCwd(cwd);
                       if (type === 1) {
-                          targetFrame.taged.isFile = true;
-                          targetFrame.outed.isFile = true;
+                          targetFrame.setType(FILE);
                           var ext = cwd.substring(cwd.split(" ")[0].lastIndexOf(".")+1);
                           var mode = modes[ext];
                           if (mode) {
@@ -378,10 +415,9 @@ function ViewModel() {
                           }
                       } else {
                           targetFrame.outed.cm.setOption("mode", "shell");
-                          targetFrame.taged.isFile = false;
-                          targetFrame.outed.isFile = false;
+                          targetFrame.setType(DIR);
                       }
-                      if (targetFrame.outhidden) {
+                      if (targetFrame.minimized) {
                           targetFrame.bigger();
                       }
                   }});
@@ -402,8 +438,8 @@ function ViewModel() {
                       'data': data,
                       'success': function (xhr) {
                           var cwd = cwd_orig + "+Output";
-                          if (!fe.frame.taged.hasTag) {
-                              fe.frame.taged.setTagKey(cwd);
+                          if (!fe.frame.hasTagKey) {
+                              fe.frame.setTagKey(cwd);
                           }
                           var output = xhr.output;
                           var targetFrame = null;
@@ -413,6 +449,10 @@ function ViewModel() {
                               targetFrame = self.newFrame(cwd, null, fe.frame.colid);
                           }
                           targetFrame.outed.getDoc().setValue(output);
+                          targetFrame.setType(OUTPUT);
+                          if (targetFrame.minimized) {
+                              targetFrame.bigger();
+                          }
                       }});
             }
         }};
@@ -424,36 +464,26 @@ function ViewModel() {
             self.editors[eid] = f.editors[i];
         }
         if (tagKey) {
-            f.taged.setTagKey(tagKey)
+            f.setTagKey(tagKey)
             self.framesByTag[tagKey] = f;
         }
         self.framesById[id] = f
         return f;
     };
-    this.delFrame = function(frameId) {
-        var frame = self.framesById[frameId];
-        var wasHidden = frame.outhidden;
-        var srcColId = frame.colid;
-        var srcTagKey = frame.taged.getTagKey();
-        $("#"+frameId).remove();
-        _.each(frame.editors, function(e) {
-            delete vm.editors[e.id];
-        });
-        delete vm.framesByTag[srcTagKey];
-        delete vm.framesById[frameId];
+    this.rebalanceCol = function(colId, wasHidden, frameId) {
         var done = false;
         _.each(_.keys(vm.framesById), function (fid) {
             if (done) return;
             var f = vm.framesById[fid];
             if (wasHidden) {
-                if (f.colid === srcColId) {
-                    if (!f.outhidden) {
+                if (f.colid === colId) {
+                    if (!f.minimized) {
                         f.bigger();
                         done = true;
                     }
                 }
             } else {
-                if (f.colid === srcColId) {
+                if (f.colid === colId) {
                     if (f.id !== frameId) {
                         f.bigger();
                         done = true;
@@ -462,6 +492,21 @@ function ViewModel() {
             }
         });
     };
+    this.delReferences = function(frame) {
+        _.each(frame.editors, function(e) {
+            delete vm.editors[e.id];
+        });
+        delete vm.framesByTag[frame.getTagKey()];
+        delete vm.framesById[frame.id];
+    };
+    this.delFrame = function(frameId) {
+        var frame = self.framesById[frameId];
+        var wasHidden = frame.minimized;
+        var srcColId = frame.colid;
+        $("#"+frameId).remove();
+        self.delReferences(frame);
+        self.rebalanceCol(srcColId, wasHidden, frameId);
+    };
     this.newCol = function(tagKey) {
         self.columnCount ++;
         var newColId = _.uniqueId();
@@ -469,19 +514,22 @@ function ViewModel() {
         self.columnIds[newColId] = newFrame;
         return newFrame
     };
+    this.delCol = function(colId) {
+        self.columnCount --;
+        _.each(_.keys(self.framesById), function (fid) {
+            var frame = self.framesById[fid];
+            if (frame.colid === colId) {
+                self.delReferences(frame);
+            }
+        });
+        $("#col"+colId).remove();
+        $("td").width($(document).width()/self.columnCount);
+    };
     $("#top").on("contextmenu", function(e) {
         if (e.target.className === "anchor") {
             self.framesById[parseInt($(e.target.parentNode).attr("id"))].bigger();
-        } else {
-            self.open();
-        }
+        } 
         return false;
-    });
-    $("#top").mouseup(function(x) {
-        if (x.which === 2 || (x.which === 1 && x.altKey)) {
-            self.execute();
-        }
-        return true;
     });
 };
 
