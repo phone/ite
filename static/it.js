@@ -210,6 +210,38 @@ function Frame(id, isMainframe, colid, width) {
     this.isMainframe = isMainframe;
     this.colid = colid;
     this.width = width;
+    this.outputEnd = null;
+    this.setOutputEnd = function (pos) {
+      self.outputEnd = pos;
+    };
+    this.getPtyCommandRange = function () {
+      var cm = self.outed.cm;
+      var cmdEnd = CodeMirror.Pos(cm.lastLine(),
+                                  cm.getLine(cm.lastLine()).length);
+      return {start: self.outputEnd, end: cmdEnd};
+    };
+    this.ptyCommand = function () {
+      var cm = self.outed.cm;
+      var range = self.getPtyCommandRange();
+      return cm.getRange(range.start, range.end);
+    };
+    this.makePTY = function () {
+      var ptykeys = {name: "pty",
+                     Enter: function (cm) {
+                              var range = self.getPtyCommandRange();
+                              var cmd = self.ptyCommand();
+                              vm.execute(cmd || "");
+                              self.justSentCR = true;
+                              self.previousCommand = cmd;
+                              self.outed.cm.replaceRange(cmd + "\n",
+                                                         range.start,
+                                                         range.end);
+                            }};
+      self.outed.cm.addKeyMap(ptykeys);
+    };
+    this.notPTY = function () {
+      self.outed.cm.removeKeyMap("pty");
+    };
     this.setType = function (type) {
         if (ValidTypes.indexOf(type) >= 0) {
             self.type = type;
@@ -259,7 +291,7 @@ function Frame(id, isMainframe, colid, width) {
     }
     this.getCwd = function () {
         var cwd = self.getTagTokens()[0];
-        if (self.isFile() || self.isOutput()) {
+        if (self.isFile() || self.isOutput() || self.isPty()) {
             cwd = cwd.substring(0, cwd.lastIndexOf("/"));
         }
         if (! EndsWith(cwd, "/")) {
@@ -388,6 +420,7 @@ function ViewModel() {
         var orig_cwd = self.get_cwd();
         if (orig_sel) {
             var data = { "cmd" : orig_sel,
+                         "colid" : fe.frame.colid,
                          "cwd" : orig_cwd };
             post({'resource': '/o',
                   'data': data,
@@ -406,7 +439,7 @@ function ViewModel() {
                       }
                       targetFrame.outed.getDoc().setValue(output);
 //                      targetFrame.taged.setCwd(cwd);
-                      if (type === 1) {
+                      if (type === FILE) {
                           targetFrame.setType(FILE);
                           var ext = cwd.substring(cwd.split(" ")[0].lastIndexOf(".")+1);
                           var mode = modes[ext];
@@ -422,37 +455,44 @@ function ViewModel() {
                       }
                   }});
         }};
-    this.execute = function() {
+    this.execute = function(force_command) {
         var fe = self.focusedEditor;
-        var sel_orig = self.get_selection().trim() || "";
+        var sel_orig = "";
+        if (!force_command && force_command !== "") {
+          sel_orig = self.get_selection().trim() || "";
+        } else {
+          sel_orig = force_command;
+        }
         var cwd_orig = self.get_cwd();
         if (sel_orig) {
             var nssel = "_it_" + sel_orig;
             if (nssel in self.commands) {
                 self.commands[nssel](fe.frame);
             } else {
-                console.log("posting");
+                var rid = fe.frame.type===PTY ? fe.frame.getTagKey() : cwd_orig+"+REPL";
                 var data = { "cmd" : sel_orig,
+                             "rid" : rid,
+                             "colid" : fe.frame.colid,
                              "cwd" : cwd_orig };
                 post({'resource': '/x',
                       'data': data,
                       'success': function (xhr) {
                           var cwd = cwd_orig + "+Output";
-                          if (!fe.frame.hasTagKey) {
-                              fe.frame.setTagKey(cwd);
-                          }
-                          var output = xhr.output;
-                          var targetFrame = null;
-                          if (_.has(self.framesByTag, cwd)) {
-                              targetFrame = self.framesByTag[cwd];
-                          } else {
-                              targetFrame = self.newFrame(cwd, null, fe.frame.colid);
-                          }
-                          targetFrame.outed.getDoc().setValue(output);
-                          targetFrame.setType(OUTPUT);
-                          if (targetFrame.minimized) {
-                              targetFrame.bigger();
-                          }
+                          //if (!fe.frame.hasTagKey) {
+                          //    fe.frame.setTagKey(cwd);
+                          //}
+                          //var output = xhr.output;
+                          //var targetFrame = null;
+                          //if (_.has(self.framesByTag, cwd)) {
+                          //    targetFrame = self.framesByTag[cwd];
+                          //} else {
+                          //    targetFrame = self.newFrame(cwd, null, fe.frame.colid);
+                          //}
+                          //targetFrame.outed.getDoc().setValue(output);
+                          //targetFrame.setType(OUTPUT);
+                          //if (targetFrame.minimized) {
+                          //    targetFrame.bigger();
+                          //}
                       }});
             }
         }};
@@ -525,6 +565,55 @@ function ViewModel() {
         $("#col"+colId).remove();
         $("td").width($(document).width()/self.columnCount);
     };
+    this.getTargetFrame = function (rid, colid, tagkey) {
+      var targetFrame = null;
+      if (_.has(self.framesById, rid)) {
+        targetFrame = self.framesById[rid];
+      } else {
+        if (_.has(self.framesByTag, tagkey)) {
+            targetFrame = self.framesByTag[tagkey];
+        } else {
+            targetFrame = self.newFrame(tagkey, null, colid);
+        }
+      }
+      return targetFrame;
+    };
+    var socket = io.connect('http://localhost:8080');
+    socket.on('data', function (data) {
+      var rid = data.rid;
+      var colid = data.colid;
+      var tagkey = data.tagkey;
+      var type = data.type;
+      var output = data.data;
+      var targetFrame = self.getTargetFrame(rid, colid, tagkey);
+      var curVal = '';
+      if (targetFrame.outed.cm.getValue() === "" && type === PTY) {
+        targetFrame.makePTY();
+      }
+      if (targetFrame.justSentCR &&
+          output.replace(/^[\s\r]+|[\s\r]+$/g,'') === targetFrame.previousCommand) {
+        // previousCommand only gets set for typed commands. clicked commands don't
+        // echo on the prompt, so it's ok to let the terminal print it.
+        return;
+      } else {
+        targetFrame.justSentCR = false;
+      }
+      if (type === PTY) {
+        curVal = targetFrame.outed.cm.getValue();
+      }
+      targetFrame.outed.cm.setValue(curVal + output);
+      var lineno = targetFrame.outed.cm.lastLine();
+      var lastline = targetFrame.outed.cm.getLine(lineno);
+      var end = CodeMirror.Pos(lineno, lastline.length);
+      targetFrame.outed.cm.setCursor(end);
+      targetFrame.setOutputEnd(end);
+      if (targetFrame.type === null) {
+        targetFrame.setType(type);
+      }
+      if (targetFrame.minimized && curVal === '') {
+        targetFrame.bigger();
+      }
+    });
     $("#top").on("contextmenu", function(e) {
         if (e.target.className === "anchor") {
             self.framesById[parseInt($(e.target.parentNode).attr("id"))].bigger();
