@@ -5,7 +5,9 @@ var path  = require('path');
 //export PS1="\h:\w]\$ "
 function run(socket, return_identifier, colid, shell, cols, cmd, cwd) {
   var env = process.env;
-  env["TERMCAP"] = "";
+  env.TERM = "vt220";
+  delete env.LS_COLORS;
+  delete env.TERMCAP;
   var term = pty.spawn(shell, [], {
     name: 'screen',
     cols: 100,

@@ -211,6 +211,7 @@ function Frame(id, isMainframe, colid, width) {
     this.colid = colid;
     this.width = width;
     this.outputEnd = null;
+    this.previousCommand = null;
     this.setOutputEnd = function (pos) {
       self.outputEnd = pos;
     };
@@ -589,6 +590,10 @@ function ViewModel() {
       var curVal = '';
       if (targetFrame.outed.cm.getValue() === "" && type === PTY) {
         targetFrame.makePTY();
+      }
+      if (targetFrame.justSentCR) {
+        console.log("prevCmd: "+targetFrame.previousCommand);
+        console.log("output: "+output);
       }
       if (targetFrame.justSentCR &&
           output.replace(/^[\s\r]+|[\s\r]+$/g,'') === targetFrame.previousCommand) {

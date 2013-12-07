@@ -1,10 +1,39 @@
-var express = require('express')
-  , fs = require('fs')
-  , _ = require('lodash')
+var express  = require('express')
+  , fs       = require('fs')
+  , _        = require('lodash')
+  , sqlite3  = require('sqlite3').verbose()
+  , sql      = require('./sql')
   , procutil = require('./procutil')
-  , app = express()
-  , server = require('http').createServer(app)
-  , io = require('socket.io').listen(server);
+  , app      = express()
+  , server   = require('http').createServer(app)
+  , io       = require('socket.io').listen(server);
+
+var db = new sqlite3.Database(':memory:');
+sql.init(db, function () {
+  sql.insert(new sql.fakeRes(), db, 'frames',
+             {domId: "#1",
+              type: "dir",
+              outputEnd: null,
+              justSentCR: false,
+              previousCommand: null,
+              previousSelection: null,
+              content: "herpderp",
+              tag: '/vagrant/it Get Put Newcol Del',
+              tagKey: '/vagrant/it',
+              hasTagKey: true,
+              colId: "col1",
+              colDomId: "#col1",
+              anchorId: "anchor1",
+              anchorDomId: "#anchor1",
+              tagEdId: "tag1",
+              outEdId: "out1",
+              tagEdDomId: "#tag1",
+              outEdDomId: "#out1",
+              visibility: "max",
+              placement: 0,
+              height: "auto",
+              width: "auto"});
+});
 
 server.listen(8080);
 
@@ -22,7 +51,7 @@ io.sockets.on('connection', function (sock) {
 });
 
 app.get('/', function (req, res) {
-  res.sendfile(__dirname + '/index.html');
+  res.sendfile(__dirname + '/templates/index2.html');
 });
 
 app.post('/o', function (req, res) {
@@ -64,6 +93,38 @@ app.post('/put', function (req, res) {
   res.send(200);
 });
 
+/**
+ * get all the frames. probably only using this now.
+ */
+app.get('/frames', function (req, res) {
+  db.all("select * from frames",
+         function (err, rows) {
+           res.send(rows);
+         });
+});
+
+/* operations on a specific frame */
+
+app.post('/frames', function (req, res) {
+  sql.insert(res, db, 'frames', req.body)
+});
+
+app.get('/frames/:id', function (req, res) {
+  db.each("select * from frames where id = ?",
+           req.params.id,
+           function (err, row) {
+             res.send(row);
+           });
+});
+
+app.put('/frames/:id', function (req, res) {
+  sql.insert(res, db, 'frames', req.body)
+});
+
+app.delete('/frames/:id', function (req, res) {
+  sql.delEq(res, db, 'frames', {id: req.params.id});
+  res.send({ok: "ok"});
+});
 //io.sockets.on('connection', function (socket) {
 //  socket.emit('news', { hello: 'world' });
 //  socket.on('my other event', function (data) {
