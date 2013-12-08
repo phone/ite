@@ -158,6 +158,7 @@ function Commands() {
         vm.newCol("");
     };
     self._it_Delcol = function(frame) {
+      vm.delCol(frame.get("colId"), frame.get("colDomId"));
     };
 };
 
@@ -639,8 +640,8 @@ var Screen = Backbone.Model.extend({
                            });
   },
   delCol: function (colId, colDomId) {
-    _.forEach(this.frames.where({colId: colId}), function (frame) {
-      this.frames.remove(frame.id);
+    _.forEach(this.get("frames").where({colId: colId}), function (frame) {
+      frame.destroy();
     });
     $(colDomId).remove();
     var tds = $("td");
