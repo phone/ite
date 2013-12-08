@@ -140,12 +140,8 @@ app.put('/frames/:id', function (req, res) {
 });
 
 app.delete('/frames/:id', function (req, res) {
+  console.log("DELETE: " + req.body);
   sql.delEq(res, db, 'frames', {id: req.params.id});
   res.send({ok: "ok"});
 });
-//io.sockets.on('connection', function (socket) {
-//  socket.emit('news', { hello: 'world' });
-//  socket.on('my other event', function (data) {
-//    console.log(data);
-// });
-//});
+

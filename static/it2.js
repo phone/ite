@@ -91,9 +91,8 @@ ValidVisibilities = [MIN,MAX,HID,CUS];
 
 FILE   = "file";
 DIR    = "dir";
-OUTPUT = "output";
 PTY    = "pty";
-ValidTypes = [FILE,OUTPUT,DIR,PTY];
+ValidTypes = [FILE,DIR,PTY];
 
 EndsWith = function (list, item) { return (list[list.length - 1] === item); };
 
@@ -148,7 +147,7 @@ function Commands() {
         vm.put();
     };
     self._it_Del = function(frame) {
-        vm.delFrame(frame.id);
+      frame.destroy();
     };
     self._it_New = function(frame) {
         vm.get("frames").add({tag: DEFAULTTAG,
@@ -159,7 +158,6 @@ function Commands() {
         vm.newCol("");
     };
     self._it_Delcol = function(frame) {
-        vm.delCol(frame.colid);
     };
 };
 
@@ -490,6 +488,11 @@ var Screen = Backbone.Model.extend({
         m.save(m.attributes);
         m.render(vm.get("domId"));
       }});
+    }).on("destroy", function (model, collection, options) {
+      var wasHidden = model.get("visibility") === MIN;
+      var srcColId = model.get("colId");
+      $(model.get("domId")).remove();
+      vm.rebalanceCol(wasHidden, srcColId, model.id);
     });
     var socket = io.connect('http://localhost:8080');
     socket.on('data', function (data) {
@@ -644,12 +647,13 @@ var Screen = Backbone.Model.extend({
     tds.width($(document).width()/tds.length);
   },
   rebalanceCol: function (wasHidden, colId, frameId) {
+    /* this is horrendous, but right now it works */
     var done = false;
     vm.get("frames").forEach(function (f) {
       if (done) return;
       if (wasHidden) {
         if (f.get("colId") === colId) {
-          if (!f.get("visibility") === MIN) {
+          if (f.get("visibility") !== MIN) {
             f.bigger();
             done = true;
           }
