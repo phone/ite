@@ -53,22 +53,25 @@ function drag(ev) {
 };
 
 function drop(ev) {
-    ev.preventDefault();
-    var data = ev.dataTransfer.getData("text/plain");
-    var srcColId = vm.framesById[data].colid;
-    var node = ev.currentTarget;
-    var target = $(node)
-    var dstColId = target.attr("id").substring(3);
-    if (node && srcColId !== dstColId) {
-        vm.framesById[data].colid = dstColId;
-        var wasHidden = vm.framesById[data].minimized;
-        orig_node = document.getElementById(data);
-        orig_node.parentNode = node;
-        target.append(orig_node);
-        vm.framesById[data].bigger();
-        vm.rebalanceCol(srcColId, wasHidden, data);
-    }
-    return false;
+  ev.preventDefault();
+  var data = ev.dataTransfer.getData("text/plain");
+  var frames = vm.get("frames");
+  var movingFrame = frames.get(data);
+  var srcColId = movingFrame.get("colId");
+  var node = ev.currentTarget;
+  var target = $(node)
+  var dstColId = target.attr("id");
+  if (node && srcColId !== dstColId) {
+    movingFrame.set({colId: dstColId,
+                     colDomId: "#"+dstColId});
+    var wasHidden = movingFrame.get("visibility") === HID;
+    orig_node = document.getElementById(data);
+    orig_node.parentNode = node;
+    target.append(orig_node);
+    movingFrame.bigger();
+    vm.rebalanceCol(wasHidden, srcColId, movingFrame.id);
+  }
+  return false;
 };
 
 DEFAULTTAGNC = " Put New Del Newcol Delcol ";
@@ -165,13 +168,15 @@ var Editor = Backbone.Model.extend({
     frame: null,
     cm: null,
     content: null,
-    type: TAG
+    type: TAG,
+    changed: false
   },
 
   render: function () {
     eltSel = this.get("type") === TAG ? "tagEdDomId" : "outEdDomId";
     var elt = $(this.get("frame").get(eltSel))[0];
     this.set({cm : CodeMirror(elt, opts[this.get("type")])});
+    this.get("cm").setOption("mode", this.get("frame").get("mode"));
     this.get("cm").setValue(this.get("content") || "");
   },
 
@@ -196,6 +201,9 @@ var Editor = Backbone.Model.extend({
       }, 2);
       return false;
     });
+    this.get("cm").on("change", function (cm, ch) {
+      self.set({changed: true});
+    }),
     this.get("cm").on("mousedown", function (cm, e) {
         if (e.which === 1 && !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
           cm.previousSelection = null;
@@ -213,27 +221,31 @@ var Editor = Backbone.Model.extend({
 });
 
 var Frame = Backbone.Model.extend({
-  placement: 0,
-  width: 0,
-  height: 0,
-  domId: null,
-  tag: null,
-  tagKey: null,
-  content: null,
-  colId: null,
-  colDomId: null,
-  hasTagKey: false,
-  anchorId: null,
-  anchorDomId: null,
-  tagEdDomId: null,
-  tagEd: null,
-  outEdDomId: null,
-  outEd: null,
-  type: null,
-  visibility: MAX,
-  outputEnd: null,
-  previousCommand: null,
-  justSentCR: false,
+  defaults: {
+    placement: 0,
+    width: 0,
+    height: 0,
+    domId: null,
+    tag: null,
+    tagKey: null,
+    content: null,
+    colId: null,
+    colDomId: null,
+    hasTagKey: false,
+    anchorId: null,
+    anchorDomId: null,
+    tagEdDomId: null,
+    changed: false,
+    tagEd: null,
+    outEdDomId: null,
+    outEd: null,
+    type: null,
+    mode: null,
+    visibility: MAX,
+    outputEnd: null,
+    previousCommand: null,
+    justSentCR: false,
+  },
 
   initialize: function () {
     this.set({colDomId: "#" + this.get("colId")});
@@ -279,6 +291,25 @@ var Frame = Backbone.Model.extend({
     outEd.register();
     this.bigger();
     this.trigger("setupDone", this);
+    this.on("change:visibility change:tagKey change:hasTagKey change:previousSelection change:colId change:colDomId", function (model, coll, opts) {
+      model.set("changed", true);
+    });
+    var self = this;
+    setInterval(function () {
+      var tagEd = self.get("tagEd");
+      var outEd = self.get("outEd");      
+      if (tagEd.get("changed") ||
+          outEd.get("changed") ||
+          self.get("changed")) {
+        tagEd.set("changed", false);
+        outEd.set("changed", false);
+        self.set("changed", false);
+        self.set({tag: tagEd.get("cm").getValue(),
+                  content: outEd.get("cm").getValue()
+                 });
+        self.save(_.omit(self.attributes, ["changed", "tagEd", "outEd"]), {patch: true});
+      }
+    }, 3500);
   },
   
   getPtyCommandRange: function () {
@@ -442,7 +473,8 @@ var Screen = Backbone.Model.extend({
         return false;
     });
     this.get("frames").on("add", function (model, collection, options) {
-      model.save(model.attributes, {success: function (m, xhr, o) {
+      model.save(model.attributes,
+                 {success: function (m, xhr, o) {
         console.log("wat?");
         var id = m.id;
         m.set({"domId": "#" + id
@@ -455,7 +487,7 @@ var Screen = Backbone.Model.extend({
               ,"width": "auto"
               ,"height": "auto"
               });
-        m.save(m.attributes, {success: null});
+        m.save(m.attributes);
         m.render(vm.get("domId"));
       }});
     });
@@ -544,12 +576,15 @@ var Screen = Backbone.Model.extend({
                   function (targetFrame) {
                     var outEd = targetFrame.get("outEd");
                     var outEdCm = targetFrame.get("outEd").get("cm");
+                    var tagEd = targetFrame.get("tagEd");
+                    var tagEdCm = targetFrame.get("tagEd").get("cm");
                     outEdCm.setValue(output);
                     tagEdCm.setOption("mode", null);
                     if (type === FILE) {
                       targetFrame.setType(FILE);
                       var ext = cwd.substring(cwd.split(" ")[0].lastIndexOf(".")+1);
                       var mode = modes[ext];
+                      targetFrame.set("mode", mode);
                       if (mode) {
                         outEdCm.setOption("mode", mode);
                       }
@@ -594,11 +629,11 @@ var Screen = Backbone.Model.extend({
   },
   newCol: function (tagKey) {
     var ids = this.get("frames").pluck("id");
-    var newColId = _.max(ids) + 1;
+    var newColId = "col" + String(_.max(ids) + 1);
     this.get("frames").add({tagKey: tagKey,
                             tag: tagKey + DEFAULTTAGNC,
                             colId: newColId
-                            });
+                           });
   },
   delCol: function (colId, colDomId) {
     _.forEach(this.frames.where({colId: colId}), function (frame) {
@@ -608,14 +643,34 @@ var Screen = Backbone.Model.extend({
     var tds = $("td");
     tds.width($(document).width()/tds.length);
   },
-  rebalanceCol: function (wasHidden, colId) {
-    if (wasHidden) {
-      this.frames.findWhere({visibility: MAX,
-                      colId: colId}).bigger();
-    } else {
-      this.frames.findWhere({visibility: MIN,
-                      colId: colId}).bigger();
-    }
+  rebalanceCol: function (wasHidden, colId, frameId) {
+    var done = false;
+    vm.get("frames").forEach(function (f) {
+      if (done) return;
+      if (wasHidden) {
+        if (f.get("colId") === colId) {
+          if (!f.get("visibility") === MIN) {
+            f.bigger();
+            done = true;
+          }
+        }
+      } else {
+        if (f.get("colId") === colId) {
+          if (f.id !== frameId) {
+            f.bigger();
+            done = true;
+          }
+        }
+      }
+    });
+    //var frames = this.get("frames");
+    //if (wasHidden) {
+    //  frames.findWhere({visibility: MAX,
+    //                    colId: colId}).bigger();
+    //} else {
+    //  frames.findWhere({visibility: MIN,
+    //                    colId: colId}).bigger();
+    //}
   },
   getTargetFrame: function (rid, colId, tagKey, callback) {
     var targetFrame = null;

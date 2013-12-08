@@ -27,6 +27,8 @@ exports.init = function (db, cb) {
          " outEdId TEXT,"+
          " outEdDomId TEXT,"+
 
+         " changed INT,"+
+         " mode TEXT,"+
          " visibility TEXT,"+
          " placement INT,"+
          " height INT,"+

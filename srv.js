@@ -1,6 +1,6 @@
 var express  = require('express')
   , fs       = require('fs')
-  , _        = require('lodash')
+  , _        = require('underscore')
   , sqlite3  = require('sqlite3').verbose()
   , sql      = require('./sql')
   , procutil = require('./procutil')
@@ -8,7 +8,7 @@ var express  = require('express')
   , server   = require('http').createServer(app)
   , io       = require('socket.io').listen(server);
 
-var db = new sqlite3.Database(':memory:');
+var db = new sqlite3.Database('/home/vagrant/ite.session');
 sql.init(db, function () {
   sql.insert(new sql.fakeRes(), db, 'frames',
              {domId: "#1",
@@ -17,7 +17,7 @@ sql.init(db, function () {
               justSentCR: false,
               previousCommand: null,
               previousSelection: null,
-              content: "herpderp",
+              content: "welcome",
               tag: '/vagrant/it Get Put Newcol Del',
               tagKey: '/vagrant/it',
               hasTagKey: true,
@@ -30,6 +30,7 @@ sql.init(db, function () {
               tagEdDomId: "#tag1",
               outEdDomId: "#out1",
               visibility: "max",
+              mode: null,
               placement: 0,
               height: "auto",
               width: "auto"});
@@ -106,7 +107,8 @@ app.get('/frames', function (req, res) {
 /* operations on a specific frame */
 
 app.post('/frames', function (req, res) {
-  sql.insert(res, db, 'frames', req.body)
+  sql.insert(res, db, 'frames', _.omit(req.body,
+                                       ["tagEd", "outEd"]));
 });
 
 app.get('/frames/:id', function (req, res) {
@@ -117,8 +119,24 @@ app.get('/frames/:id', function (req, res) {
            });
 });
 
+app.patch('/frames/:id', function (req, res) {
+  console.log("PATCH: " + req.body);
+  sql.insert(res, db, 'frames', _.omit(req.body,
+                                       ["tagEd", "outEd"]));
+});
+
+app.post('/frames/:id', function (req, res) {
+  console.log("POST: " + req.body);
+  console.log(req.body);
+  sql.insert(res, db, 'frames', _.omit(req.body,
+                                       ["tagEd", "outEd"]));
+});
+
 app.put('/frames/:id', function (req, res) {
-  sql.insert(res, db, 'frames', req.body)
+  console.log("PUT: " + req.body);
+  console.log(req.body);
+  sql.insert(res, db, 'frames', _.omit(req.body,
+                                       ["tagEd", "outEd"]));
 });
 
 app.delete('/frames/:id', function (req, res) {
