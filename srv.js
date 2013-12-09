@@ -8,7 +8,8 @@ var express  = require('express')
   , server   = require('http').createServer(app)
   , io       = require('socket.io').listen(server);
 
-var db = new sqlite3.Database('/home/vagrant/ite.session');
+var spath = path.join(process.env.HOME, 'ite.session');
+var db = new sqlite3.Database(spath);
 sql.init(db, function () {
   sql.insert(new sql.fakeRes(), db, 'frames',
              {domId: "#1",
