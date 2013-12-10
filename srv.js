@@ -1,6 +1,7 @@
 var express  = require('express')
   , fs       = require('fs')
   , _        = require('underscore')
+  , path     = require('path')
   , sqlite3  = require('sqlite3').verbose()
   , sql      = require('./sql')
   , procutil = require('./procutil')

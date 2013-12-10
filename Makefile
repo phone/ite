@@ -3,12 +3,16 @@ PREFIX = $(HOME)
 SESSIONPATH = $(PREFIX)/$(SESSIONFILE)
 OS := $(shell uname)
 
+ifeq ($(OS), Linux)
+INSTALLCMD := sudo yum install -y npm
+endif
+
+ifeq ($(OS), Darwin)
+INSTALLCMD := brew install npm
+endif
+
 install:
-	ifeq ($(OS), Linux)
-		sudo yum install -y npm
-	endif
-	ifeq ($(OS), Darwin)
-		brew install npm
+	$(INSTALLCMD) npm
 	npm install
 
 run: install
