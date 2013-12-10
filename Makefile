@@ -4,11 +4,11 @@ SESSIONPATH = $(PREFIX)/$(SESSIONFILE)
 OS := $(shell uname)
 
 ifeq ($(OS), Linux)
-INSTALLCMD := sudo yum install -y npm
+INSTALLCMD := sudo yum install -y
 endif
 
 ifeq ($(OS), Darwin)
-INSTALLCMD := brew install npm
+INSTALLCMD := brew install
 endif
 
 install:
