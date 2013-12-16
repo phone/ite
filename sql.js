@@ -30,6 +30,7 @@ exports.init = function (db, cb) {
          " changed INT,"+
          " mode TEXT,"+
          " visibility TEXT,"+
+         " origvis TEXT,"+
          " placement INT,"+
          " height INT,"+
          " width INT)", cb);

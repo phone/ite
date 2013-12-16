@@ -61,10 +61,46 @@
 * Default editor theme
 ***********************************************************/
 
+.CodeMirror-dialog {
+  position: absolute;
+  left: 0; right: 0;
+  background: #151515;
+  z-index: 15;
+  padding: .1em .8em;
+  overflow: hidden;
+  color: #add;
+}
+
+.CodeMirror-dialog-top {
+  border-bottom: 1px solid #202020;
+  top: 0;
+}
+
+.CodeMirror-dialog-bottom {
+border-top: 1px solid #202020;
+bottom: 0;
+}
+
+.CodeMirror-dialog input {
+border: none;
+outline: none;
+background: transparent;
+width: 20em;
+color: #add;
+font-family: monospace;
+}
+
+.CodeMirror-dialog button {
+font-size: 70%;
+}
+
+table.fixed { table-layout: fixed; }
+div.column { overflow:scroll; }
+
 /* span.anchor { float: left; background:#733 ;} */
 span.anchor-focused{ float: left; background:#18B1CC; -webkit-user-select:none; user-select:none;}
 span.anchor { float:left; background: #13879C; -webkit-user-select:none; user-select:none;}
-.cm-s-tag { background: #151515; color:#ccc; border-top: 1px solid #202020;}
+.cm-s-tag { background: #151515; color:#ccc; border-top: 1px solid #202020; word-break:break-all;}
 .cm-s-tag .CodeMirror {display: inline-block; height:auto; overflow-x:auto; overflow-y:hidden;}
 .cm-s-tag .CodeMirror-scroll {height:auto; overflow-x:auto; overflow-y:hidden;}
 .cm-s-tag .CodeMirror-selected { background: #555; }
@@ -134,7 +170,8 @@ span.anchor { float:left; background: #13879C; -webkit-user-select:none; user-se
 .cm-s-default span.CodeMirror-matchingbracket {box-sizing:border-box; background:transparent; border-bottom:1px solid #3FF; font-weight:normal;}
 .cm-s-default span.CodeMirror-nonmatchingbracket {color: #F33; border-bottom:1px solid #F33; background:none;}
 
-.cm-s-default .cm-searching { background:#5f5f5f; border-radius:2px; color:#eee !important; }
+.cm-s-default .cm-searching { border-radius:2px; background: #5f5f5f; background: rgba(19, 135, 156, .5); }
+/*.cm-s-default .cm-searching { background:#5f5f5f; border-radius:2px; color:#eee !important; }*/
 .cm-s-default .searching-current { background:#13879C; color:#BFFCFF !important; }
 
 .CodeMirror div.CodeMirror-cursor { border-left: 1px solid white; }

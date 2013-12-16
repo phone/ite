@@ -20,8 +20,8 @@ sql.init(db, function () {
               previousCommand: null,
               previousSelection: null,
               content: "welcome",
-              tag: '/vagrant/it Get Put Newcol Del',
-              tagKey: '/vagrant/it',
+              tag: process.env.HOME + ' Get Put Newcol Del',
+              tagKey: process.env.HOME,
               hasTagKey: true,
               colId: "col1",
               colDomId: "#col1",
@@ -100,7 +100,7 @@ app.post('/put', function (req, res) {
  * get all the frames. probably only using this now.
  */
 app.get('/frames', function (req, res) {
-  db.all("select * from frames",
+  db.all("select * from frames order by placement",
          function (err, rows) {
            res.send(rows);
          });
