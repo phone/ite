@@ -5,11 +5,11 @@ var path  = require('path');
 //export PS1="\h:\w]\$ "
 function run(socket, return_identifier, colid, shell, cols, cmd, cwd) {
   var env = process.env;
-  env.TERM = "vt220";
+  env.TERM = "dumb";
   delete env.LS_COLORS;
   delete env.TERMCAP;
   var term = pty.spawn(shell, [], {
-    name: 'screen',
+    name: 'dumb',
     cols: 100,
     rows: 25,
     cwd: cwd,

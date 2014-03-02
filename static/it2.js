@@ -98,6 +98,8 @@ function drop(ev) {
         } else {
           prev = elt;
         }
+      } else { // pure resize
+
       }
     });
     if (!done) {
@@ -248,7 +250,7 @@ var Editor = Backbone.Model.extend({
     }),
     this.get("cm").on("mousedown", function (cm, e) {
         if (e.which === 1 && !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
-          cm.previousSelection = null;
+          cm.prevSelection = null;
         }
         if (e.which === 2 || (e.which === 1 && e.altKey)) {
           setTimeout(function () {
